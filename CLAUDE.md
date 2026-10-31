@@ -5,7 +5,8 @@ Guidance for Claude Code (and any agent) working in this repository.
 > **This is a learning repo, not a delivery repo.** The owner is building a
 > production-quality Batch Inference API *by hand*, from scratch, to strengthen
 > their Python, asyncio, concurrency, GPU-inference-serving, and
-> performance-engineering skills. Your job is to **teach through
+> performance-engineering skills. It runs **real inference on a local RTX 4090**
+> and is meant to be deployable on that GPU. Your job is to **teach through
 > implementation**, not to implement for them.
 
 See [AGENTS.md](./AGENTS.md) for the same project context in agent-agnostic form.
@@ -104,28 +105,80 @@ confirm with the owner before jumping ahead.
 A synchronous HTTP batch-inference service:
 1. Accepts individual synchronous HTTP requests.
 2. Aggregates them into batches.
-3. Routes batches to available (simulated) GPU workers.
+3. Routes batches to available GPU workers.
 4. Calls a fixed backend `batchstring(inputs: list[str]) -> list[str]` **which
    cannot be modified**.
 5. Maps each output back to its originating HTTP request.
 6. Maximizes throughput under a strict p99 latency SLO.
-7. Targets **10,000 requests/second**.
+7. Targets **10,000 requests/second** *as a distributed design goal* (see §7 on
+   what one laptop 4090 actually delivers).
 8. Supports backpressure, worker failures, timeouts, retries.
 
-GPUs are **simulated** initially (no GPU hardware). Real GPU integration is an
-optional later step.
+### The GPU backend is real
+
+`batchstring` runs **real inference on the local RTX 4090**: a small causal
+language model (HuggingFace `transformers` + PyTorch/CUDA) that does
+**variable-length text generation** — generate until EOS, so each input in a
+batch can finish at a different time. The system must be deployable as-is on the
+GPU, not just in simulation.
+
+**Everything sits behind one `Backend` interface** with two implementations,
+swappable by config:
+- `RealGPUBackend` — the deployable target; loads the model on CUDA and runs
+  batched generation.
+- `SimulatedBackend` — deterministic, no GPU; models generation timing (fixed
+  per-batch overhead + per-token cost × output length) so tests are fast and
+  reproducible, and so we can explore multi-worker / high-RPS regimes the single
+  laptop GPU cannot physically run.
+
+Keep this interface clean from Phase 2 on: batching and scheduling code must
+never import torch or know which backend is behind it.
+
+### Consequences of real, variable-length generation (teach these explicitly)
+
+- The backend call is **blocking CUDA work** — it must never run on the asyncio
+  event loop. Offload it (thread/process executor or a dedicated worker) and
+  treat the GPU as a **serial** resource (one physical device).
+- **Variable output length causes head-of-line blocking** in a static batch: a
+  batch finishes only when its longest-generating member does. This is the core
+  motivation for **continuous / iteration-level batching** (the vLLM/Orca idea),
+  introduced as its own topic.
+- **One physical GPU (16 GB VRAM).** "Multiple workers" is explored on the
+  simulator; on real hardware the 4090 is a single serial worker, and scaling
+  past it is a distributed-design discussion.
 
 ## 7. Constraints & stack
 
 - Python **3.11+**, asyncio, FastAPI, Uvicorn.
 - pytest, pytest-asyncio, httpx for tests; Locust (or similar) for load; and
   Prometheus-style metrics.
-- Prefer the standard library where practical.
-- **Do not** reach for Kubernetes, Ray, Redis, Kafka, or real GPUs up front.
-  Introduce new infrastructure only once the current architecture demonstrably
-  hits a limitation — and make the owner articulate that limitation first.
-- Keep GPU simulation **separate** from batching and scheduling logic.
-- Deterministic tests wherever possible.
+- **GPU:** local **NVIDIA RTX 4090 Laptop, 16 GB VRAM, CUDA 8.9 (Ada)**.
+  Verified stack: `torch 2.13 (+cu130)`, `transformers 5.13`, `cuda.is_available()
+  == True`. Pick a **small** causal LM that loads fast and leaves headroom
+  (e.g. a ~0.5–1.5B model, or GPT-2 for the first pass) — choose it with the
+  owner in Phase 4, don't hard-code it unilaterally.
+- Prefer the standard library where practical (torch/transformers are the one
+  deliberate heavy dependency, confined to `RealGPUBackend`).
+- **Do not** reach for Kubernetes, Ray, Redis, Kafka, or multi-GPU/distributed
+  serving up front. Introduce new infrastructure only once the current
+  architecture demonstrably hits a limitation — and make the owner articulate
+  that limitation first.
+- Keep the GPU backend (real and simulated) **behind the `Backend` interface**,
+  separate from batching and scheduling logic.
+- Deterministic tests wherever possible: they run against `SimulatedBackend`, so
+  the suite needs no GPU. Mark real-GPU tests so they're skipped without CUDA.
+
+### On the 10,000 req/s target — be honest about the hardware
+
+Real variable-length generation on one laptop 4090 will deliver on the order of
+tens-to-low-hundreds of completed generations/sec, not 10k. So:
+- **Single-GPU measured target:** whatever this 4090 actually sustains at a
+  defensible p99 — established by measurement in Phase 6, not assumed.
+- **10k req/s is the *architecture* target:** the design must be able to scale
+  to it across a worker fleet, explored via `SimulatedBackend` and the
+  distributed-design phase.
+Always distinguish **offered load vs. completed throughput**, and never quote a
+simulated number as if the real GPU produced it.
 
 ## 8. Deliverables (end state)
 
