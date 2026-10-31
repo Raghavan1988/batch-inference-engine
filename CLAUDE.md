@@ -78,28 +78,91 @@ crash mid-batch; never returning a response to the wrong caller; deadline
 guarantees; multi-machine evolution; production metrics. Evaluate their answers
 critically and push for sharper reasoning where it's thin.
 
-## 5. Progress tracker
+## 5. The build roadmap
 
-Keep this current. Update the status as checkpoints are cleared. **Do not
-advance a phase until its checkpoint is demonstrably met.**
+Each step = **one concept + one small piece of code + one way to verify it.** We
+tick the box together as we finish each one. **Do not advance until the current
+step's verify passes and the owner confirms.** `summary.md` is the running log of
+what's done and learned — update it at the end of each completed step.
 
-| Phase | Topic | Checkpoint | Status |
-|------:|-------|------------|--------|
-| 1 | Python & concurrency fundamentals (tasks, await, Queue, Future, locks/semaphores, timeouts, cancellation; why blocking calls can't live on the event loop → executors) | Explain what happens when 100 requests arrive concurrently | ☐ not started |
-| 2 | Basic FastAPI `POST /infer` behind the `Backend` interface; offload the blocking call off the event loop | Explain the request lifecycle & where latency enters | ☐ |
-| 3 | Dynamic (static) batching (`MAX_BATCH_SIZE=32`, `MAX_WAIT_MS=10`), futures for correlation | Prove no request gets another's output | ☐ |
-| 4 | Real GPU backend: load a small causal LM on the 4090, batched variable-length generation; + deterministic `SimulatedBackend` twin modeling generation timing | Derive optimal batch size; explain how output-length variance affects batch latency | ☐ |
-| 5 | Multi-worker scheduling (round-robin / least-outstanding / least-ECT), benchmarked on the simulator; real 4090 as the single serial worker | Explain when round-robin routes poorly (esp. with variable request cost) | ☐ |
-| 6 | Throughput/latency optimization: measure a defensible single-GPU p99 SLO; explore the 10k-RPS regime on the simulator | Defend the config with measurements; separate offered vs completed load | ☐ |
-| 7 | Static vs **continuous (iteration-level) batching** — head-of-line blocking from variable output length; implement or prototype continuous batching | Explain why static batching wastes the GPU here and how continuous batching fixes it | ☐ |
-| 8 | Backpressure & failure handling (bounded queues, deadlines, timeouts, retries, graceful shutdown, GPU OOM / worker crash) | Explain behavior under sustained overload | ☐ |
-| 9 | Production/distributed architecture (gateways, GPU worker pools across machines, health checks, autoscaling, fairness, observability) | Sketch the distributed version that reaches 10k RPS | ☐ |
-| 10 | Capstone design review — walk the full system, defend every choice | Deliver a frank assessment + specific gaps to close | ☐ |
+The steps group into parts, but the *step* is the unit of work, not the part.
 
-**Current phase: Phase 1, Lesson 1 (asyncio fundamentals) — not yet begun.**
+**Part A — Concurrency fundamentals (warm-up; code lives in `scratch/`)**
+- [ ] **Step 0 — Setup.** venv, install FastAPI/uvicorn/pytest/pytest-asyncio/httpx
+      (torch + transformers already present), lay out `app/` + `tests/`. *Concept:*
+      one venv per project; never touch the anaconda base env. *Verify:* imports +
+      `pytest` collects cleanly.
+- [ ] **Step 1 — asyncio basics.** `scratch/lesson1.py`: fire N `fake_infer`
+      coroutines concurrently with `gather`, measure wall-clock. *Concept:* event
+      loop, `await` yields, cooperative scheduling. *Verify:* 10×0.5s calls finish
+      in ≈0.5s, not 5s.  ← **we are here**
+- [ ] **Step 2 — The blocking trap + executors.** Show a sync `sleep`/CPU call
+      freezes the loop; fix with `asyncio.to_thread` / `run_in_executor`. *Concept:*
+      why a synchronous GPU call can't live on the event loop. *Verify:* timing
+      before vs after the fix.
+- [ ] **Step 3 — `asyncio.Queue` + `Future`.** Tiny producer/consumer: hand off
+      work, get the result back through a `Future`. *Concept:* decoupling arrival
+      from processing; request→future correlation in miniature. *Verify:* unit test.
 
-When starting a session, re-read this table and continue from the current phase;
-confirm with the owner before jumping ahead.
+**Part B — The service skeleton**
+- [ ] **Step 4 — `Backend` interface + `SimulatedBackend`.** *Concept:* program to
+      an interface; sim models variable-length generation timing (overhead +
+      per-token × length), deterministic. *Verify:* GPU-free timing test.
+- [ ] **Step 5 — FastAPI `POST /infer`, one request at a time** through the backend
+      (offloaded off the loop). *Concept:* request lifecycle, where latency enters,
+      stateless front door. *Verify:* `httpx` / curl.
+
+**Part C — Dynamic batching**
+- [ ] **Step 6 — The batcher.** Collect requests, flush on size-OR-time, correlate
+      via futures. *Concept:* size/time tradeoff; zero cross-talk between requests.
+      *Verify:* tests for 1 / 32 / 33 / partial / out-of-order / cancellation.
+- [ ] **Step 7 — Wire batcher into the endpoint.** *Verify:* concurrent `httpx`
+      requests each get their own correct output; log batch-size distribution.
+
+**Part D — Real GPU**
+- [ ] **Step 8 — `RealGPUBackend`.** Load a small causal LM on the 4090; batched
+      variable-length generation (padding, attention mask, stop at EOS). *Concept:*
+      tokenization + batched `generate`. *Verify:* `@pytest.mark.gpu` test; real
+      output + tokens/sec.
+- [ ] **Step 9 — Measure & derive.** Run real load; measure p50/p95/p99, GPU util,
+      batch-size distribution; derive optimal batch size / max wait. *Concept:*
+      offered vs completed load.
+
+**Part E — Scaling & scheduling**
+- [ ] **Step 10 — Multi-worker scheduling.** round-robin / least-outstanding /
+      least-ECT on the simulator; real 4090 is the single serial worker. *Verify:*
+      benchmark the three; show when round-robin routes poorly.
+
+**Part F — The hard problem**
+- [ ] **Step 11 — Static vs continuous batching.** Demonstrate head-of-line
+      blocking from variable output length; prototype iteration-level batching.
+      *Concept:* the vLLM/Orca idea. *Verify:* GPU-idle / latency before vs after.
+
+**Part G — Production & close-out**
+- [ ] **Step 12 — Backpressure & failures.** Bounded queues, 429 overload, request
+      deadlines, worker timeout, crash recovery, retries, graceful shutdown.
+      *Verify:* spike / crash / hang tests; nothing silently dropped.
+- [ ] **Step 13 — Observability & load tests.** Prometheus-style metrics, Locust
+      script, throughput-vs-latency graphs.
+- [ ] **Step 14 — Distributed design.** Gateways, GPU worker pools across machines,
+      health checks, autoscaling, fairness → the path to 10k RPS. *Verify:* diagram
+      + written defense.
+- [ ] **Step 15 — Capstone review.** Walk the whole system, defend every choice;
+      frank assessment + specific gaps.
+
+### How we verify, by stage
+- Steps 0–4: a few lines in a Python shell or a fast unit test.
+- Once the server exists (Step 5+): `httpx` / `curl` against the running app.
+- Real GPU (Step 8+): GPU-marked tests + measured latency/throughput.
+- End: Locust load tests + graphs.
+
+### Out of scope for now (revisit later, one at a time)
+Multi-tenant auth, real multi-GPU/multi-machine serving, KV-cache paging,
+speculative decoding, quantization, streaming token responses. Noted when
+relevant; not built yet.
+
+When starting a session, re-read this roadmap + `summary.md` and continue from
+the first unchecked step; confirm with the owner before jumping ahead.
 
 ## 6. The system being built (target design)
 
