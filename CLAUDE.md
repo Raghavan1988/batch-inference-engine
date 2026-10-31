@@ -85,15 +85,16 @@ advance a phase until its checkpoint is demonstrably met.**
 
 | Phase | Topic | Checkpoint | Status |
 |------:|-------|------------|--------|
-| 1 | Python & concurrency fundamentals (tasks, await, Queue, Future, locks/semaphores, timeouts, cancellation) | Explain what happens when 100 requests arrive concurrently | ☐ not started |
-| 2 | Basic FastAPI `POST /infer`, per-request processing | Explain the request lifecycle & where latency enters | ☐ |
-| 3 | Dynamic batching (`MAX_BATCH_SIZE=32`, `MAX_WAIT_MS=10`), futures for correlation | Prove no request gets another's output | ☐ |
-| 4 | Simulated GPU workers (fixed overhead + per-item cost), isolated from scheduling | Derive optimal batch size for a workload | ☐ |
-| 5 | Multi-worker scheduling (round-robin / least-outstanding / least-ECT), benchmarked | Explain when round-robin routes poorly | ☐ |
-| 6 | Throughput/latency optimization toward 10k RPS @ a measured p99 SLO | Defend the config with measurements | ☐ |
-| 7 | Backpressure & failure handling (bounded queues, deadlines, timeouts, retries, graceful shutdown) | Explain behavior under sustained overload | ☐ |
-| 8 | Production/distributed architecture (gateways, worker pools, health checks, autoscaling, fairness, observability) | Sketch out the distributed version end to end | ☐ |
-| 9 | Capstone design review — walk the full system, defend every choice | Deliver a frank assessment + specific gaps to close | ☐ |
+| 1 | Python & concurrency fundamentals (tasks, await, Queue, Future, locks/semaphores, timeouts, cancellation; why blocking calls can't live on the event loop → executors) | Explain what happens when 100 requests arrive concurrently | ☐ not started |
+| 2 | Basic FastAPI `POST /infer` behind the `Backend` interface; offload the blocking call off the event loop | Explain the request lifecycle & where latency enters | ☐ |
+| 3 | Dynamic (static) batching (`MAX_BATCH_SIZE=32`, `MAX_WAIT_MS=10`), futures for correlation | Prove no request gets another's output | ☐ |
+| 4 | Real GPU backend: load a small causal LM on the 4090, batched variable-length generation; + deterministic `SimulatedBackend` twin modeling generation timing | Derive optimal batch size; explain how output-length variance affects batch latency | ☐ |
+| 5 | Multi-worker scheduling (round-robin / least-outstanding / least-ECT), benchmarked on the simulator; real 4090 as the single serial worker | Explain when round-robin routes poorly (esp. with variable request cost) | ☐ |
+| 6 | Throughput/latency optimization: measure a defensible single-GPU p99 SLO; explore the 10k-RPS regime on the simulator | Defend the config with measurements; separate offered vs completed load | ☐ |
+| 7 | Static vs **continuous (iteration-level) batching** — head-of-line blocking from variable output length; implement or prototype continuous batching | Explain why static batching wastes the GPU here and how continuous batching fixes it | ☐ |
+| 8 | Backpressure & failure handling (bounded queues, deadlines, timeouts, retries, graceful shutdown, GPU OOM / worker crash) | Explain behavior under sustained overload | ☐ |
+| 9 | Production/distributed architecture (gateways, GPU worker pools across machines, health checks, autoscaling, fairness, observability) | Sketch the distributed version that reaches 10k RPS | ☐ |
+| 10 | Capstone design review — walk the full system, defend every choice | Deliver a frank assessment + specific gaps to close | ☐ |
 
 **Current phase: Phase 1, Lesson 1 (asyncio fundamentals) — not yet begun.**
 
@@ -182,15 +183,20 @@ simulated number as if the real GPU produced it.
 
 ## 8. Deliverables (end state)
 
-Working GitHub-ready project: FastAPI endpoint, dynamic batching engine,
-simulated GPU worker pool, multiple routing algorithms, unit + integration
-tests, load-test scripts, benchmarks + throughput-vs-latency graphs, an
-architecture diagram, and a README explaining design decisions and tradeoffs.
+Working GitHub-ready project: FastAPI endpoint, dynamic batching engine, a GPU
+worker pool behind one `Backend` interface (real RTX 4090 causal-LM backend +
+deterministic simulator), multiple routing algorithms, static and continuous
+batching, unit + integration tests (GPU-free by default), load-test scripts,
+benchmarks + throughput-vs-latency graphs, an architecture diagram, and a README
+explaining design decisions and tradeoffs — deployable on the local 4090.
 
 ## 9. Repo conventions (fill in as structure emerges)
 
 - Package name / layout: _TBD — decide with the owner in Phase 2._
-- Test command: `pytest` (async via `pytest-asyncio`).
+- Test command: `pytest` (async via `pytest-asyncio`); default suite runs against
+  `SimulatedBackend` and needs **no GPU**. Gate real-GPU tests behind a marker
+  (e.g. `@pytest.mark.gpu`) skipped when `torch.cuda.is_available()` is false.
 - Formatting / lint: _TBD (suggest `ruff` + `black` when scaffolding)._
-- Keep correlation (request→future) and simulation and scheduling in distinct
-  modules so each phase's component can be tested in isolation.
+- Keep correlation (request→future), the `Backend` interface (real + simulated),
+  batching, and scheduling in **distinct modules** so each phase's component is
+  tested in isolation and `torch` stays confined to `RealGPUBackend`.
