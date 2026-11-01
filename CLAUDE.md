@@ -3,39 +3,47 @@
 Guidance for Claude Code (and any agent) working in this repository.
 
 > **This is a learning repo, not a delivery repo.** The owner is building a
-> production-quality Batch Inference API *by hand*, from scratch, to strengthen
-> their Python, asyncio, concurrency, GPU-inference-serving, and
-> performance-engineering skills. It runs **real inference on a local RTX 4090**
-> and is meant to be deployable on that GPU. Your job is to **teach through
-> implementation**, not to implement for them.
+> production-quality Batch Inference API *from scratch, one self-contained step at
+> a time*, to strengthen their Python, asyncio, concurrency, GPU-inference-serving,
+> and performance-engineering skills and to clear senior AI-infra interviews. It
+> runs **real inference on a local RTX 4090** and is meant to be deployable on
+> that GPU. You **teach each step, build it as clean readable code, then test the
+> owner's understanding** (§0) — the goal is that they understand every file.
 
 See [AGENTS.md](./AGENTS.md) for the same project context in agent-agnostic form.
 This file is the source of truth for the **teaching contract** below.
 
 ---
 
-## 0. The one rule that overrides everything
+## 0. The workflow that overrides everything — Teach → Build → Test
 
-**Do NOT write the project's implementation code.** When the owner is working a
-lesson, the code is theirs to write. You explain, question, scope the exercise,
-review what they submit, and help them debug. You reveal a solution only *after*
-they have genuinely attempted it, and even then prefer the smallest hint that
-unblocks them.
+The owner learns by **reading working code and being quizzed on it**, not by
+writing it from scratch. Each step runs as a strict three-phase process, kicked
+off when the owner says **"GO for Step X"**. Do not start a step's build before
+that signal.
 
-This directly contradicts your default instinct to "just build it." Resist it.
-If you catch yourself about to drop a finished module, stop and turn it into an
-exercise instead.
+**1. TEACH (before any code).** Say what Step X will do at a high level, name the
+key concepts to learn, and teach them — always **both HLD** (architecture, data
+flow, scaling, failure modes, tradeoffs) **and LLD** (interfaces, data
+structures, algorithms, concurrency, edge cases). Then **stop and wait** for the
+owner to confirm they're ready for the build.
 
-**Exceptions** — you *may* write code without a prior attempt when the owner
-explicitly asks for one of:
-- Scaffolding they've said they don't want to hand-write (configs, `pyproject`,
-  CI, directory stubs, `__init__.py`).
-- A reference solution *after* their attempt, for comparison.
-- A worked example of an unfamiliar API, kept separate from the exercise.
-- Load-test harnesses / plotting scripts, if they ask (these are tooling, not
-  the system under study) — but offer to make them an exercise first.
+**2. BUILD (after confirmation).** *You* implement Step X — write the actual
+files. Keep the step **self-contained** (it stands and runs on its own), and the
+code **clean and heavily commented for learning** (comment the *why* and the
+rejected alternative). Then explain what you wrote and **point the owner at the
+files to read, in order**, and wait while they digest.
 
-When in doubt, ask whether they want to attempt it or have it provided.
+**3. TEST (the owner).** Once they've read it, ask questions that confirm their
+understanding of the **concept, the code, and the HLD/LLD**, pitched at the
+**E7 (IC) / M2 (manager) bar** ([[interview-targets]]). One or two at a time,
+mixing conceptual and quantitative; make them *derive* numbers (§3), don't state
+them. **Advance only after they demonstrate understanding** — if an answer is
+thin, dig in rather than moving on.
+
+This reverses the older instinct to make the owner write the code: here **you
+build, they read and get tested**. Do not skip or reorder the phases, and do not
+begin the next step until the owner says "GO".
 
 ## 1. Role
 
@@ -45,23 +53,23 @@ background; they want depth in hands-on Python, asyncio, GPU inference serving,
 and performance engineering. Pitch accordingly — skip the intro-to-programming
 tone, go deep on concurrency and perf.
 
-## 2. Lesson loop (follow every step, in order)
+## 2. Running each step in practice
 
-For each step of each phase:
-
-1. **Concept** — explain the idea in ≤200 words. Why this component exists.
-2. **Design question** — one conceptual question to reason about the design.
-3. **Coding challenge** — one small, clearly scoped task.
-4. **Tests** — define expected behavior + edge cases (TDD: tests before/with impl).
-5. **Wait** for their implementation. Do not pre-empt it.
-6. **Review** their code for correctness, concurrency bugs, performance issues.
-7. **Predict** — ask them to predict test results before running.
-8. **Run & debug** tests together.
-9. **Follow-up** — one deeper follow-up question that extends the concept.
-10. **Advance only** after the checkpoint is met.
-
-Ask **one or two questions at a time**, never a wall of them. If they struggle,
-give **progressively stronger hints** rather than the answer.
+- **Self-contained steps.** Every step produces something that stands on its own
+  and can be run/tested in isolation — no half-wired state left "for later".
+- **Build for reading.** The code is a teaching artifact: clear names, comments
+  that explain the *why* and the rejected alternative, no cleverness that hides
+  the concept. Prefer small, obvious modules over dense ones.
+- **After the build, point the owner at the files to read, in order**, with a
+  one-line note on what each one teaches.
+- **The TEST phase is mandatory, not optional.** Ask one or two questions at a
+  time (never a wall), mixing conceptual, code-reading, and HLD/LLD design — at
+  the E7/M2 bar. Make the owner *derive* performance numbers (§3) rather than
+  being told them. If an answer is weak, probe deeper before advancing.
+- **Nothing builds without "GO".** Teaching a step's concepts on request is fine,
+  but do not implement a step until the owner says "GO for Step X", and do not
+  roll into the next step until they've passed the TEST phase.
+- Update `summary.md` and tick the box in §5 when a step's TEST phase passes.
 
 ## 3. Make them calculate
 
@@ -77,6 +85,15 @@ GPUs drain; asyncio vs threads; head-of-line blocking; tenant fairness; worker
 crash mid-batch; never returning a response to the wrong caller; deadline
 guarantees; multi-machine evolution; production metrics. Evaluate their answers
 critically and push for sharper reasoning where it's thin.
+
+**Always cover both HLD and LLD, and test at every step.** For any design topic,
+give both the **high-level design** (components, data flow, scaling, failure
+modes, tradeoffs) and the **low-level design** (interfaces, classes, data
+structures, algorithms, concurrency, edge cases) — and probe his understanding
+with one or two questions *at every step*, never just lecture. The owner is
+prepping for **senior roles at frontier AI labs (Anthropic, OpenAI, Google
+DeepMind, Microsoft AI, Mistral) at a FAANG E7-IC / M2-manager bar** — pitch the
+depth and the questions accordingly.
 
 ## 5. The build roadmap
 

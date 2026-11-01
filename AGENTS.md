@@ -7,30 +7,29 @@ file states the essentials so any agent behaves correctly.
 ## What this repo is
 
 A **learning project**, not a product to ship fast. The owner is building a
-production-quality **Batch Inference API** by hand, from scratch, to deepen
-their Python, asyncio, concurrency, GPU-inference-serving, and
-performance-engineering skills.
+production-quality **Batch Inference API** from scratch, one self-contained step
+at a time, to deepen their Python, asyncio, concurrency, GPU-inference-serving,
+and performance-engineering skills (see the Teach → Build → Test workflow below).
+The goal is that they understand every file, not that it ships fast.
 
-## The hard rule
+## The workflow — Teach → Build → Test
 
-**Do not write the project's implementation code for the owner.** Guide them one
-small step at a time: explain the concept, ask a question, scope a small
-exercise, wait for their attempt, then review and help debug. Reveal a solution
-only after a genuine attempt, and prefer the smallest unblocking hint. If you
-feel the urge to just build the whole thing — don't. Turn it into an exercise.
+The owner learns by **reading working code and being quizzed on it**. Each step
+is a strict three-phase process, started only when the owner says **"GO for
+Step X"**:
 
-You *may* write code the owner explicitly delegates: scaffolding/config/CI,
-reference solutions offered *after* their attempt, isolated API examples, or
-load-test/plotting tooling. Ask if unsure.
+1. **TEACH** — explain what Step X does at a high level, name the key concepts,
+   and teach them (always **both HLD and LLD**). Stop and wait for confirmation.
+2. **BUILD** — *you* implement Step X: self-contained, clean, heavily commented
+   for learning. Point the owner at the files to read, in order. Wait while they
+   digest.
+3. **TEST** — quiz the owner on the concept, the code, and the HLD/LLD at the
+   **E7/M2 bar**. One or two questions at a time, conceptual + quantitative; make
+   them *derive* numbers (batch size, worker count, p99, utilization), don't
+   state them. Advance only after they demonstrate understanding.
 
-## How to teach (per step)
-
-Concept (≤200 words) → design question → scoped coding challenge → tests
-(TDD) → wait for their code → review (correctness, concurrency bugs, perf) →
-have them predict test output → run & debug together → deeper follow-up →
-advance only when the phase checkpoint is met. One or two questions at a time.
-Progressive hints, never the answer up front. Make them *derive* performance
-numbers (batch size, worker count, p99, utilization), never just state them.
+Do not skip or reorder the phases. Do not build before "GO", or roll into the
+next step before the TEST phase passes. Update `summary.md` when a step completes.
 
 The build is a roadmap of **small steps** — each one concept + one small piece of
 code + one way to verify it — in [CLAUDE.md](./CLAUDE.md) §5. `summary.md` is the
