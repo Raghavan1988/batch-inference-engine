@@ -1,0 +1,12 @@
+# Runtime dependencies — what the service needs to actually serve requests.
+# Install into the project venv with:  pip install -r requirements.txt
+#
+# NOTE: torch + transformers are intentionally NOT reinstalled here. They are
+# provided by the Anaconda base env and inherited by the venv created with
+# `--system-site-packages`, so the working CUDA build is reused as-is. Pinned
+# below as a comment for the record only:
+#   torch==2.13.0+cu130
+#   transformers==5.13.1
+
+fastapi==0.115.6
+uvicorn[standard]==0.34.0

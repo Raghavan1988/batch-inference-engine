@@ -1,0 +1,40 @@
+# Single source of truth for project metadata and tool config (replaces
+# setup.py + pytest.ini + .flake8). See CLAUDE.md for the build roadmap.
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "batch-inference-engine"
+version = "0.0.0"
+description = "A dynamic request-batching inference service (learning build)."
+requires-python = ">=3.11"
+# Runtime deps are tracked in requirements.txt for the step-by-step learning
+# flow (and because torch/transformers are inherited from the base env rather
+# than resolved by pip). Kept empty here so `pip install -e .` installs only
+# the package itself without trying to re-resolve the GPU stack.
+dependencies = []
+
+[tool.setuptools]
+packages = ["app"]
+
+[tool.pytest.ini_options]
+# `auto` lets `async def test_...` run as a test without a per-test decorator.
+asyncio_mode = "auto"
+# Pin the async fixture loop scope so pytest-asyncio stops warning about the
+# future default change; "function" = a fresh event loop per test (safe default).
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+markers = [
+    "gpu: test requires a CUDA GPU (auto-skipped when none is available)",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+# A sensible, non-fussy default set: pyflakes (F), pycodestyle (E/W),
+# isort (I), pyupgrade (UP), bugbear (B).
+select = ["F", "E", "W", "I", "UP", "B"]

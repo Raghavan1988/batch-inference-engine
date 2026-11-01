@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual environment (one venv per project; never committed)
+.venv/
+
+# Test / tooling caches
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Benchmark / load-test outputs and generated graphs (added in later steps)
+benchmarks/results/
+*.png
+
+# Local model / HF caches, if ever placed in-tree
+.cache/
+models/
+
+# Editor / OS noise
+.vscode/
+.idea/
+.DS_Store
