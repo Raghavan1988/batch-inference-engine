@@ -4,10 +4,29 @@ A running log of what we've built and learned, step by step. See `CLAUDE.md`
 (and `AGENTS.md`) for the full roadmap and the **Teach → Build → Test** workflow
 we build by.
 
-**Where we are:** Step 0 done. Next up: **Step 1 — asyncio basics** (say
-`GO for Step 1`).
+**Where we are:** Steps 0–1 done. Next up: **Step 2 — the blocking trap +
+executors** (say `GO for Step 2`).
 
 ---
+
+## ✅ Step 1 — asyncio basics (`scratch/lesson1.py`)
+
+Ran the same 10×0.5s fake-inference workload two ways and timed it: **serial
+5.01s vs concurrent (`gather`) 0.50s** — ~10× overlap on one thread.
+
+**Ideas learned:**
+- **Concurrency ≠ parallelism.** asyncio overlaps *waiting* on one thread; it
+  helps I/O-bound work, does nothing for CPU-bound work (no extra cores).
+- **`await` is the only yield point.** Cooperative scheduling: a task runs until
+  it awaits. Swapping `await asyncio.sleep(0.5)` → `time.sleep(0.5)` blocks the
+  loop's thread (no suspension point) → concurrency gone, back to ~5s. This is
+  exactly why a synchronous GPU call must be offloaded (Step 2).
+- **`gather` returns results in submission order, not finish order** — the
+  **correlation invariant**: `results[i]` belongs to `inputs[i]`. Relying on
+  finish order instead would misroute answers to the wrong caller (cross-talk),
+  i.e. cross-tenant data leakage. Protected properly via index→`Future` in Step 6.
+  Counterpart tool: `asyncio.as_completed` yields in *completion* order (right for
+  "handle whichever finishes first", wrong for correlation).
 
 ## ✅ Step 0 — Setup
 
@@ -52,13 +71,14 @@ tests/__init__.py
 tests/conftest.py     auto-skip gpu tests without CUDA
 tests/test_smoke.py   4 toolchain smoke tests
 scratch/README.md     throwaway experiments go here
+scratch/lesson1.py    Step 1 — serial vs concurrent asyncio demo
 .venv/                local virtualenv (git-ignored)
 ```
 
 ## Next
 
-**Step 1 — asyncio basics:** build `scratch/lesson1.py` — run N `fake_infer`
-coroutines concurrently with `gather` and show 10×0.5s "inferences" finish in
-≈0.5s, not 5s. Concepts: the event loop, `await` as a yield point, cooperative
-scheduling — and the one blocking line that would wreck it (the seed of why the
-real GPU call must be offloaded, Step 2).
+**Step 2 — the blocking trap + executors:** demonstrate that a synchronous
+`time.sleep`/CPU call freezes the event loop (kills the concurrency we just
+measured), then fix it with `asyncio.to_thread` / `run_in_executor` so the loop's
+thread stays free. This is the pattern the real blocking GPU `generate()` call
+will need. Concepts: blocking vs awaitable, thread-pool offload, the GIL caveat.
