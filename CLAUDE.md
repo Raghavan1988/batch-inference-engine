@@ -105,10 +105,10 @@ what's done and learned — update it at the end of each completed step.
 The steps group into parts, but the *step* is the unit of work, not the part.
 
 **Part A — Concurrency fundamentals (warm-up; code lives in `scratch/`)**
-- [ ] **Step 0 — Setup.** venv, install FastAPI/uvicorn/pytest/pytest-asyncio/httpx
-      (torch + transformers already present), lay out `app/` + `tests/`. *Concept:*
-      one venv per project; never touch the anaconda base env. *Verify:* imports +
-      `pytest` collects cleanly.
+- [x] **Step 0 — Setup.** venv (`--system-site-packages`, inherits base torch/CUDA),
+      installed FastAPI/uvicorn/pytest/pytest-asyncio/httpx, laid out `app/` +
+      `tests/` + `scratch/`, `pyproject.toml` (asyncio=auto, `gpu` marker, ruff),
+      editable install. *Verified:* 4 smoke tests green incl. the real-4090 test.
 - [ ] **Step 1 — asyncio basics.** `scratch/lesson1.py`: fire N `fake_infer`
       coroutines concurrently with `gather`, measure wall-clock. *Concept:* event
       loop, `await` yields, cooperative scheduling. *Verify:* 10×0.5s calls finish
