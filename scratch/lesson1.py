@@ -81,7 +81,7 @@ async def main() -> None:
 
     # Correctness: same answers both ways, and each result maps to its prompt.
     assert serial_results == concurrent_results
-    assert concurrent_results[3] == "result:p3"
+    assert concurrent_results[4] == "result:p4"
 
     speedup = N  # ideal: serial is ~N× the concurrent time
     print(
@@ -89,7 +89,7 @@ async def main() -> None:
         f"concurrent overlaps them (~{INFER_SECONDS:.1f}s) — up to ~{speedup}x,\n"
         "all on ONE thread. That overlap is the whole reason the front door is async."
     )
-    print(f"\nSample result for 'p3': {concurrent_results[3]!r} (ordered, not by finish time)")
+    print(f"\nSample result for 'p4': {concurrent_results[4]!r} (ordered, not by finish time)")
 
 
 if __name__ == "__main__":
