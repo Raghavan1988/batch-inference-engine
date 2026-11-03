@@ -109,14 +109,15 @@ The steps group into parts, but the *step* is the unit of work, not the part.
       installed FastAPI/uvicorn/pytest/pytest-asyncio/httpx, laid out `app/` +
       `tests/` + `scratch/`, `pyproject.toml` (asyncio=auto, `gpu` marker, ruff),
       editable install. *Verified:* 4 smoke tests green incl. the real-4090 test.
-- [ ] **Step 1 — asyncio basics.** `scratch/lesson1.py`: fire N `fake_infer`
-      coroutines concurrently with `gather`, measure wall-clock. *Concept:* event
-      loop, `await` yields, cooperative scheduling. *Verify:* 10×0.5s calls finish
-      in ≈0.5s, not 5s.  ← **we are here**
+- [x] **Step 1 — asyncio basics.** `scratch/lesson1.py`: serial vs `gather`
+      concurrent, measured. *Learned:* event loop, `await` as the only yield point,
+      cooperative scheduling, and `gather`'s submission-order results = the
+      correlation invariant (no cross-talk). *Verified:* 10×0.5s → 5.01s serial,
+      0.50s concurrent, results ordered.
 - [ ] **Step 2 — The blocking trap + executors.** Show a sync `sleep`/CPU call
       freezes the loop; fix with `asyncio.to_thread` / `run_in_executor`. *Concept:*
       why a synchronous GPU call can't live on the event loop. *Verify:* timing
-      before vs after the fix.
+      before vs after the fix.  ← **we are here**
 - [ ] **Step 3 — `asyncio.Queue` + `Future`.** Tiny producer/consumer: hand off
       work, get the result back through a `Future`. *Concept:* decoupling arrival
       from processing; request→future correlation in miniature. *Verify:* unit test.
