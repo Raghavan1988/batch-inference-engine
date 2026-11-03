@@ -1,52 +1,64 @@
 # Progress summary — batch-inference-engine
 
 A running log of what we've built and learned, step by step. See `CLAUDE.md`
-(and `AGENTS.md`) for the full roadmap and the rules we build by.
+(and `AGENTS.md`) for the full roadmap and the **Teach → Build → Test** workflow
+we build by.
 
-**Where we are:** Nothing built yet. Warming up on **Step 1 — asyncio basics**
-(the `fake_infer` + `gather` exercise). **Step 0 — Setup is still pending** — we
-jumped into the concurrency warm-up first; we'll lay down the venv + `app/`
-package before the service skeleton (Step 4/5).
+**Where we are:** Step 0 done. Next up: **Step 1 — asyncio basics** (say
+`GO for Step 1`).
 
 ---
 
-<!--
-Fill one ✅ section per completed step, in this shape:
+## ✅ Step 0 — Setup
 
-## ✅ Step N — Title (`path/touched.py`)
+Project skeleton + isolated environment, verified by a green smoke suite.
 
-One or two lines on what we built and how we verified it.
+- **Env (option A):** `.venv` created with `--system-site-packages` so it
+  **inherits the base Anaconda `torch 2.13+cu130` + CUDA** (confirmed from inside
+  the venv) — no multi-GB torch reinstall. Installed only the light deps
+  (fastapi, uvicorn, pytest, pytest-asyncio, httpx) *into* the venv. Base
+  `numpy` stayed 1.24.3 (<2), untouched.
+- **Layout:** `app/` (service package), `tests/` (+ `conftest.py`), `scratch/`,
+  `pyproject.toml`, `requirements.txt` / `requirements-dev.txt`, `.gitignore`.
+- **Verify:** `pip install -e .` + `pytest` → **4 passed** (package import, async
+  test wiring, a concurrency-overlap preview, and the real-4090 GPU check).
 
 **Ideas learned:**
-- key idea, with the "why" and the alternative we rejected
-- ...
-
-**Design decisions made explicit:**
-- decision → reason
-
-Keep the "Where we are" line at the top current, and tick the box in CLAUDE.md §5.
--->
-
-## ⏳ Step 1 — asyncio basics (in progress)
-
-Exercise: `scratch/lesson1.py` — run 10 `fake_infer` coroutines concurrently and
-show the 10 overlapping 0.5 s "inferences" finish in ≈0.5 s, not 5 s.
-
-*To capture once done:* why one thread beats synchronous here (the event loop
-runs other ready tasks during each `await`); and the one blocking line that would
-kill the benefit (a sync call with no `await` — the seed of why the real GPU
-backend must be offloaded, Step 2).
+- **`--system-site-packages` = shadowing.** The venv's own site-packages wins
+  over the inherited base ones; installs into the venv never touch base. *Danger:*
+  the env is **not hermetic** — it inherits base's state, so an unrelated base
+  change (e.g. numpy→2) can silently break torch here. Fine for a solo learning
+  laptop; in prod you'd use a clean, fully-pinned container image instead.
+- **Runtime vs dev deps** (`requirements.txt` vs `-dev.txt`). Shipping dev/test
+  deps to prod = bigger **attack surface** (httpx/pip/locust are "living off the
+  land" tools post-RCE) + **resolver instability** (a dev tool bumps a shared lib
+  your service uses) + **slower cold starts** (hurts autoscale during overload).
+- **GPU-free by default:** `conftest.py` auto-skips `@pytest.mark.gpu` tests when
+  CUDA is absent, so the suite stays fast/CI-friendly; torch stays out of `app`
+  except (later) the real GPU backend module.
 
 ## Files so far
 
 ```
-CLAUDE.md    the build rules + roadmap (source of truth)
-AGENTS.md    agent-agnostic companion
-summary.md   this file — the running log
-README.md    project intro (stub)
+CLAUDE.md             build rules + roadmap + Teach→Build→Test workflow (source of truth)
+AGENTS.md             agent-agnostic companion
+summary.md            this file — the running log
+pyproject.toml        metadata + pytest(asyncio=auto, gpu marker) + ruff config
+requirements.txt      runtime deps (fastapi, uvicorn); torch/transformers inherited from base
+requirements-dev.txt  dev deps (pytest, pytest-asyncio, httpx)
+.gitignore
+app/__init__.py       the service package (no torch here)
+tests/__init__.py
+tests/conftest.py     auto-skip gpu tests without CUDA
+tests/test_smoke.py   4 toolchain smoke tests
+scratch/README.md     throwaway experiments go here
+.venv/                local virtualenv (git-ignored)
 ```
 
 ## Next
 
-**Step 0 — Setup** (venv + `app/` + `tests/` layout), then continue the
-fundamentals warm-up (Steps 2–3) before the service skeleton.
+**Step 1 — asyncio basics:** build `scratch/lesson1.py` — run N `fake_infer`
+coroutines concurrently with `gather` and show 10×0.5s "inferences" finish in
+≈0.5s, not 5s. Concepts: the event loop, `await` as a yield point, cooperative
+scheduling — and the one blocking line that would wreck it (the seed of why the
+real GPU call must be offloaded, Step 2).
